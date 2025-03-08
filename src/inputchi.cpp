@@ -1,11 +1,12 @@
-
+// src/inputchi.cpp
 #include "inputchi/hud.h"
 #include "inputchi/signal_handler.h"
 #include "inputchi/inputchi.h"
+#include "inputchi/gui.h"
 
 using namespace std;
 
-int inputchi()
+int inputchi(DisplayMode mode)
 {
     signal(SIGINT, handle_signal);
 
@@ -23,8 +24,26 @@ int inputchi()
     int start_time = time(0);
     int hangry = 0;
 
-    while (!stop)
+    // Inicializar a GUI se necessário
+    InputchiGUI gui;
+    if (mode == DisplayMode::GUI)
     {
+        if (!gui.initialize())
+        {
+            cout << "Error: Could not initialize GUI" << endl;
+            close(fd);
+            return 1;
+        }
+    }
+
+    while (!stop && (mode == DisplayMode::CLI || gui.isOpen()))
+    {
+        // Processar eventos da GUI se estiver no modo GUI
+        if (mode == DisplayMode::GUI)
+        {
+            gui.processEvents();
+        }
+
         fd_set set;
         struct timeval timeout;
 
@@ -44,7 +63,7 @@ int inputchi()
         }
         else if (rv == 0)
         {
-            // Timeout occurred, update the HUD
+            // Timeout occurred, update the display
         }
         else
         {
@@ -75,7 +94,18 @@ int inputchi()
             start_time = time(0);
         }
 
-        print_hud(food, TIME_TO_EAT - (time(0) - start_time), hangry);
+        int time_left = TIME_TO_EAT - (time(0) - start_time);
+
+        // Atualizar a interface adequada
+        if (mode == DisplayMode::CLI)
+        {
+            print_hud(food, time_left, hangry);
+        }
+        else
+        {
+            gui.update(food, time_left, hangry);
+            gui.render();
+        }
     }
 
     close(fd);
